@@ -1,6 +1,13 @@
 local Class = require 'lib.class'
 local AutoTile = Class()
 local lg = love.graphics
+--[[NOTE this should be split into different subclasses (stupid type conditionals)
+    Should be:
+    Tile  - basic drawing and api base
+    Aware(Tile) - aware style tiles
+    Minitile(Tile or Aware) -minitiles
+    AutoFactory() - function to detect the type type and return an instance of the proper class. For syntax sugar.
+]]
 function AutoTile:init(sprite, type_) --important
 	self.texture = lg.newImage(sprite)
     self.texture:setFilter('nearest','nearest')
@@ -15,9 +22,10 @@ function AutoTile:init(sprite, type_) --important
 		--:layerInit
 	self.scale = 1 -- sets the draw scale
 end
-function AutoTile:layerInit(map,num,scale) --important
+function AutoTile:layerInit(map,num,arg) --important
 	--call from host layer to perform 2nd init to setup things in relation to the layer.
-	self.scale = scale
+	self.scale = arg.scale -- gets overridden is sie is provided
+	self.targetSize = arg.size
     
 	self:initSpriteBatch(num)
 	self:settleTiles(map)
@@ -36,6 +44,7 @@ function AutoTile:initSpriteBatch(num) --init spritebatch and cut the quads
 		--Outside corners are easy to make from the vertical and horizontal set, the inner corners are the most complecated to draw when creating the texture.
 		local miniSize = {texSize[1]/10, texSize[2]/2}
         self.size = texSize[2] -- width of a full tile
+		self.scale = self.targetSize/self.size -- auto scale calc
 		for x=0,9,1 do 
 			self.quads[x+1]={}
 			for y=0,1,1 do 
@@ -61,15 +70,19 @@ function AutoTile:settleTiles(map) --calculate the tile connection types based o
 	end
 	self.map = {}
 	--determine the method based on the spritesheet type
-	local function minitile_index(above, below, left, right) --I wish lua(in default LOVE) had binary operators
+	local function minitile_index(map, x, y) --map: tilemap, x,y: index
 		--type: 1[outside corners],2[vertical],3[horizontal],4[inner corner],5[inner fill] 
 		--layout: right-to-left
+        if map[x][y] ==0 then return 0 end--catch empty tile
+        local function sx (int) return math.min(math.max(int, 1),#map) end --wrapper to keep index in bounds
+        local function sy (int) return math.min(math.max(int, 1),#map[1]) end --wrapper to keep index in bounds
         local function falsy(thing) if thing and thing ~= 0 then return true else return false end end
-        local above, below, left, right = falsy(above), falsy(below), falsy(left), falsy(right)
+        local above, below, left, right = falsy(map[x][sy(y-1)]), falsy(map[x][sy(y+1)]), falsy(map[sx(x-1)][y]), falsy(map[sx(x+1)][y]) --get neighbors
+        local uleft, uright, dleft, dright = falsy(map[sx(x-1)][sy(y-1)]), falsy(map[sx(x+1)][sy(y-1)]), falsy(map[sx(x-1)][sy(y+1)]), falsy(map[sx(x+1)][sy(y+1)]) --get corners
 		local minitile = {  1, 1, --start as a detatched tile
 							1, 1}
 		--catch fill tiles 
-		if above and below and left and right then return {5,5,5,5} end
+		--if above and below and left and right and uleft and uright and dright and dleft then return {5,5,5,5} end
 		
 		if above then 
 			minitile[1]=2 --top connection
@@ -86,56 +99,20 @@ function AutoTile:settleTiles(map) --calculate the tile connection types based o
 			minitile[2] = minitile[2] + 2
 			minitile[4] = minitile[4] + 2
 		end
+        --find fill areas
+        if uleft and above and left then minitile[1]=5 end
+        if uright and above and right then minitile[2]=5 end
+        if dleft and below and left then minitile[3]=5 end
+        if dright and below and right then minitile[4]=5 end
+        
 		return minitile
 	end
-    local function minitile_index_tab(up,down,left,right) --to test without worrying about errors in the above
-        local function eq (t1,t2)
-          if #t1 == #t2 then
-            for k, v in ipairs(t1) do
-              if t2[k] ~= v then return false end
-            end
-          else return false end
-          return true
-        end
-        local function falsy(thing) if thing and thing ~= 0 then return 1 else return 0 end end
-        local key = {falsy(up),falsy(down),falsy(left),falsy(right)} --format input
-        local minitile_tab = {
-    --up,down,left,right --type: 1[outside corners],2[vertical],3[horizontal],4[inner corner],5[inner fill] 
-            {{0,0,0,0}, {1,1,1,1}},
-            {{0,0,0,1}, {1,3,1,3}},
-            {{0,0,1,0}, {3,1,3,1}},
-            {{0,0,1,1}, {3,3,3,3}},
-            {{0,1,0,0}, {1,1,2,2}},
-            {{0,1,0,1}, {1,3,2,4}},
-            {{0,1,1,0}, {3,1,4,2}},
-            {{0,1,1,1}, {2,2,4,4}},
-            {{1,0,0,0}, {2,2,1,1}},
-            {{1,0,0,1}, {2,4,1,3}},
-            {{1,0,1,0}, {4,2,2,1}},
-            {{1,0,1,1}, {4,5,3,3}},
-            {{1,1,0,0}, {2,2,2,2}},
-            {{1,1,0,1}, {2,4,2,4}},
-            {{1,1,1,0}, {4,2,4,2}},--note: need to check for inner corners
-            {{1,1,1,1}, {4,4,4,4}},
-        }
-        for i, v in ipairs(minitile_tab) do --find matching table entry and return
-            if eq(v[1], key) then return v[2] end
-        end
-        return {5,5,5,5} --in case of error
-    end
-	local calc --For chosen tile calc algo
-	if self.type == "minitile" then
-		calc = minitile_index
-	elseif self.type then
-		calc = aware_index
-	end
 	--generate a map of all the calculated tile connection types
-    local function sx (int) return math.min(math.max(int, 1),#map) end --wrapper to keep index in bounds
-    local function sy (int) return math.min(math.max(int, 1),#map[1]) end --wrapper to keep index in bounds
-	for x, row in ipairs(map) do
+	for x, row in ipairs(map) do --map and self.map, don't mix 'em up...
 		self.map[x]={}
 		for y, cell in ipairs(row) do 
-			self.map[x][y] = cell ~= 0 and calc(map[x][sy(y-1)],map[x][sy(y+1)],map[sx(x-1)][y],map[sx(x+1)][y]) or 0
+			--self.map[x][y] = cell ~= 0 and calc(map[x][sy(y-1)],map[x][sy(y+1)],map[sx(x-1)][y],map[sx(x+1)][y]) or 0
+            self.map[x][y] = minitile_index(map, x,y)
 		end
 	end
     --build the spritebatch

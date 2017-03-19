@@ -40,7 +40,7 @@ Args:
 	end
 	
 	--bind tilesets to layer
-	self.tileset:layerInit(arg.map, sprite_num, self.tilescale) --ARG.MAP is a HACK
+	self.tileset:layerInit(arg.map, sprite_num, {size=self.tilesize}) --ARG.MAP is a HACK
 end
 function Layer.Base:update(dt)
     

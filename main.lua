@@ -22,7 +22,7 @@ local function rotate(inp)
 end
 local function make_levels() --done like this to be able to rebuild level objects
     --test for a "level 1"
-	local cobble = Autotile('img/minitiles-basic.png', 'minitile') -- create an autotile instance
+	local cobble = Autotile('img/minitiles-basic-clean.png', 'minitile') -- create an autotile instance
 	local map = { --PoC test map
 			{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 			{0,0,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0},
@@ -44,7 +44,7 @@ local function make_levels() --done like this to be able to rebuild level object
             {0,1,1,0},
             {0,1,0,0}
         }
-	--[[local]] layer = Layer.Base{map=rotate(map), ts=cobble, tilescale=1.5}
+	--[[local]] layer = Layer.Base{map=rotate(map), ts=cobble, tilesize = 32}
 end
 
 --function game:enter()
