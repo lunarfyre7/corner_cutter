@@ -21,7 +21,7 @@ local function rotate(inp)
 end
 local function make_levels() --done like this to be able to rebuild level objects
     --test for a "level 1"
-	local cobble = Autotile('img/minitiles.png', 'minitile') -- create an autotile instance
+	local cobble = Autotile('img/minitiles-basic-clean.png', 'minitile') -- create an autotile instance
 	local map = {}
 	local mapsize = {20,15}
     local chance = 1/3
@@ -75,4 +75,5 @@ function love.keypressed()
 end
 function love.draw()
     layer:draw()
+    lg.print("use rmb/lmb to 'edit'")
 end
