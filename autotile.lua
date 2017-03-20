@@ -1,4 +1,4 @@
-local Class = require 'lib.class'
+local Class = require 'class'
 local AutoTile = Class()
 local lg = love.graphics
 --[[NOTE this should be split into different subclasses (stupid type conditionals)

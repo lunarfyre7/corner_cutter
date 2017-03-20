@@ -21,11 +21,13 @@ local function rotate(inp)
 end
 local function make_levels() --done like this to be able to rebuild level objects
     --test for a "level 1"
-	local cobble = Autotile('img/minitiles-basic-clean.png', 'minitile') -- create an autotile instance
+	local cobble = Autotile('img/minitiles.png', 'minitile') -- create an autotile instance
+    local red = Autotile('img/minitiles-basic-clean.png', 'minitile')
+    T = {cobble=1,red=2}
 	local map = {}
 	local mapsize = {20,15}
     local chance = 1/3
-	for x=1,mapsize[1],1 do map[x]={} for y=1,mapsize[2],1 do map[x][y]= math.random()<chance and 1 or 0 end end --mapgen
+	for x=1,mapsize[1],1 do map[x]={} for y=1,mapsize[2],1 do map[x][y]= math.random()<chance and 2 or 0 end end --mapgen
 	local map1 = rotate({ --PoC test map
 			{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 			{0,0,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0},
@@ -47,7 +49,7 @@ local function make_levels() --done like this to be able to rebuild level object
             {0,1,1,0},
             {0,1,0,0}
         })
-	--[[local]] layer = Layer.Base{map=map, ts=cobble, tilesize = size}
+	--[[local]] layer = Layer.Base{map=map, ts={cobble, red}, tilesize = size}
 end
 
 --function game:enter()
@@ -67,6 +69,8 @@ function love.update(dt)
 	if love.mouse.isDown(1) then 
 		layer:tile(tile_pos[1],tile_pos[2],1)
 	elseif love.mouse.isDown(2) then 
+		layer:tile(tile_pos[1],tile_pos[2],2)
+	elseif love.mouse.isDown(3) then 
 		layer:tile(tile_pos[1],tile_pos[2],0)
 	end
 end
@@ -75,5 +79,5 @@ function love.keypressed()
 end
 function love.draw()
     layer:draw()
-    lg.print("use rmb/lmb to 'edit'")
+    lg.print(string.format("use rmb/lmb/mmb to 'edit' \nFPS: %d", love.timer.getFPS()))
 end
