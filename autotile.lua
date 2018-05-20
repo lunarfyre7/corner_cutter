@@ -1,17 +1,10 @@
 local Class = require 'class'
-local AutoTile = Class()
 local lg = love.graphics
---[[NOTE this should be split into different subclasses (stupid type conditionals)
-    Should be:
-    Tile  - basic drawing and api base
-    Aware(Tile) - aware style tiles
-    Minitile(Tile or Aware) -minitiles
-    AutoFactory() - function to detect the type type and return an instance of the proper class. For syntax sugar.
-]]
-function AutoTile:init(sprite, type_) --important
+local Base = Class()
+function Base:init(sprite)
 	self.texture = lg.newImage(sprite)
     self.texture:setFilter('nearest','nearest')
-	self.type = type_ or 'auto' --Planned types: minitile (4 small tiles per tile), aware tiles, dumb/named/indexed tiles. Type could be guessed from image shape.
+	self.type = 'base' --Planned types: minitile (4 small tiles per tile), aware tiles, dumb/named/indexed tiles. Type could be guessed from image shape.
 	
 	--variables inited/set by other functions
 	self.spritebatch = nil --:buildSprites
@@ -22,7 +15,32 @@ function AutoTile:init(sprite, type_) --important
 		--:layerInit
 	self.scale = 1 -- sets the draw scale
 end
-function AutoTile:layerInit(map,num,arg) --important
+function Base:_abstract_warn(name) --make unimplemented abstract style methods more obnoxious
+    assert(false, "Please implement :"..name.." in " .. self.type ~= 'base' and self.type or 'your class')
+end
+function Base:layerInit()
+    self:_abstract_warn 'layerInit'
+end
+function Base:initSpriteBatch()
+    self:_abstract_warn "initSpriteBatch"
+end
+function Base:draw()
+    local scale = self.scale
+	lg.draw(self.spritebatch, 0,0,0,scale,scale)
+end
+local Minitile = Class(Base)
+--[[NOTE this should be split into different subclasses (stupid type conditionals)
+    Should be:
+    Tile  - basic drawing and api base
+    Aware(Tile) - aware style tiles
+    Minitile(Tile or Aware) -minitiles
+    AutoFactory() - function to detect the type type and return an instance of the proper class. For syntax sugar.
+]]
+function Minitile:init(sprite, type_) --important
+    Base.init(self, sprite)
+    self.type = 'minitile'
+end
+function Minitile:layerInit(map,num,arg) --important
 	--call from host layer to perform 2nd init to setup things in relation to the layer.
 	self.scale = arg.scale -- gets overridden is sie is provided
 	self.targetSize = arg.size
@@ -30,7 +48,7 @@ function AutoTile:layerInit(map,num,arg) --important
 	self:initSpriteBatch(num)
 	self:settleTiles(map)
 end
-function AutoTile:initSpriteBatch(num) --init spritebatch and cut the quads
+function Minitile:initSpriteBatch(num) --init spritebatch and cut the quads
 	local num = num
 	if self.type == 'minitile' then num = num*4 end --minitiles need 4 per normal tile
 	self.spritebatch = lg.newSpriteBatch(self.texture, num)
@@ -54,7 +72,7 @@ function AutoTile:initSpriteBatch(num) --init spritebatch and cut the quads
 		end
 	end
 end
-function AutoTile:settleTiles(map) --calculate the tile connection types based on the provided map.
+function Minitile:settleTiles(map) --calculate the tile connection types based on the provided map.
 	local function aware_index(above,below,left,right) --find the tile connection type based on http://www.saltgames.com/article/awareTiles/
 		local val = 0
 		if above ~= 0 then
@@ -118,7 +136,7 @@ function AutoTile:settleTiles(map) --calculate the tile connection types based o
     --build the spritebatch
     self:buildSprites()
 end
-function AutoTile:buildSprites() --assign sprites corrisponding to the connection type to the internal spritebatch
+function Minitile:buildSprites() --assign sprites corrisponding to the connection type to the internal spritebatch
     self.spritebatch:clear()
     local scale = 1
 	if self.type == 'minitile' then
@@ -137,9 +155,5 @@ function AutoTile:buildSprites() --assign sprites corrisponding to the connectio
 	end
     self.spritebatch:flush()
 end
-function AutoTile:draw()
-    local scale = self.scale
-	lg.draw(self.spritebatch, 0,0,0,scale,scale)
-end
 
-return AutoTile
+return {Simple = nil, Minitile = Minitile, Aware = nil}
